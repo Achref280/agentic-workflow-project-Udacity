@@ -1,0 +1,97 @@
+achrafsoussi@Mac agentic-workflow-project % /Users/achrafsoussi/Downloads/agentic-workflow-project/.venv/bin/python /Users/ach
+rafsoussi/Downloads/agentic-workflow-project/starter/phase_1/direct_prompt_agent.py
+The capital of France is Paris.
+Knowledge source: the model's pre-trained knowledge; no external documents were retrieved.
+achrafsoussi@Mac agentic-workflow-project % /Users/achrafsoussi/Downloads/agentic-workflow-project/.venv/bin/python /Users/ach
+rafsoussi/Downloads/agentic-workflow-project/starter/phase_1/augmented_prompt_agent.py
+Dear students,  
+The capital of France is Paris.
+The knowledge the agent likely used to answer the prompt is general knowledge about the capital of France.
+The system prompt specifying the persona likely influenced the agent to respond in a manner consistent with the persona.
+achrafsoussi@Mac agentic-workflow-project % /Users/achrafsoussi/Downloads/agentic-workflow-project/.venv/bin/python /Users/ach
+rafsoussi/Downloads/agentic-workflow-project/starter/phase_1/knowledge_augmented_prompt_agent.py
+Dear students, knowledge-based assistant. According to the provided information, the capital of France is London, not Paris.
+Demonstrating the agent using the provided knowledge:
+achrafsoussi@Mac agentic-workflow-project % /Users/achrafsoussi/Downloads/agentic-workflow-project/.venv/bin/python /Users/ach
+rafsoussi/Downloads/agentic-workflow-project/starter/phase_1/evaluation_agent.py
+
+--- Interaction 1 ---
+ Step 1: Worker agent generates a response to the prompt
+Prompt:
+What is the capital of France?
+Worker Agent Response:
+Dear students, knowledge-based assistant. According to the provided information, the capital of France is London, not Paris.
+ Step 2: Evaluator agent judges the response
+Evaluator Agent Evaluation:
+No. The answer is a sentence and not solely the name of a city as required.
+ Step 3: Check if evaluation is positive
+ Step 4: Generate instructions to correct the response
+Instructions to fix:
+Please revise your answer so that it contains only the name of a city, without any additional sentences or explanations.
+ Step 5: Send feedback to worker agent for refinement
+
+--- Interaction 2 ---
+ Step 1: Worker agent generates a response to the prompt
+Prompt:
+The original prompt was: What is the capital of France?
+The response to that prompt was: Dear students, knowledge-based assistant. According to the provided information, the capitalof France is London, not Paris.
+It has been evaluated as incorrect.
+Make only these corrections, do not alter content validity: Please revise your answer so that it contains only the name of a city, without any additional sentences or explanations.
+Worker Agent Response:
+Dear students, knowledge-based assistant. London
+ Step 2: Evaluator agent judges the response
+Evaluator Agent Evaluation:
+No. The answer includes a sentence and additional words, not solely the name of a city.
+ Step 3: Check if evaluation is positive
+ Step 4: Generate instructions to correct the response
+Instructions to fix:
+Please revise your answer so that it contains only the name of a city, without any additional sentences or extra words.
+ Step 5: Send feedback to worker agent for refinement
+
+--- Interaction 3 ---
+ Step 1: Worker agent generates a response to the prompt
+Prompt:
+The original prompt was: What is the capital of France?
+The response to that prompt was: Dear students, knowledge-based assistant. London
+It has been evaluated as incorrect.
+Make only these corrections, do not alter content validity: Please revise your answer so that it contains only the name of a city, without any additional sentences or extra words.
+Worker Agent Response:
+London
+ Step 2: Evaluator agent judges the response
+Evaluator Agent Evaluation:
+Yes. The answer "London" is solely the name of a city and is not a sentence.
+ Step 3: Check if evaluation is positive
+✅ Final solution accepted.
+{'final_response': 'London', 'evaluation': 'Yes. The answer "London" is solely the name of a city and is not a sentence.', 'iterations': 3}
+achrafsoussi@Mac agentic-workflow-project % /Users/achrafsoussi/Downloads/agentic-workflow-project/.venv/bin/python /Users/ach
+rafsoussi/Downloads/agentic-workflow-project/starter/phase_1/routing_agent.py
+0.38575450269853256
+0.1649701687495782
+0.002634527405910627
+[Router] Best agent: texas agent (score=0.386)
+Rome, Texas, is a small community with a history tied to the broader development of Texas. While not as widely known as majorcities, Rome has its own local significance. It was established in the 19th century, during the period of Texas' early settlement and expansion. The community likely developed around agriculture and local trade, common economic activities in rural Texas areas during that time. Over the years, Rome has maintained its small-town character, reflecting the historical patterns ofsettlement and community life in Texas.
+0.14363952088456433
+0.2880336377348315
+0.032039607819576446
+[Router] Best agent: europe agent (score=0.288)
+Rome, Italy, has a rich and extensive history that spans over two and a half thousand years. It was founded, according to legend, in 753 BCE by Romulus and Remus. Rome began as a small settlement on the Tiber River and grew into a powerful city-state.
+
+In its early history, Rome was a monarchy, but it transitioned to a republic in 509 BCE. The Roman Republic was characterizedby a complex system of checks and balances, with elected officials and a Senate. During this period, Rome expanded its territory through military conquest and alliances, eventually dominating the Italian peninsula.
+
+The Republic faced internal conflicts and social struggles, leading to a series of civil wars. Julius Caesar emerged as a keyfigure, and his crossing of the Rubicon River in 49 BCE marked the end of the Republic. After Caesar's assassination in 44 BCE, Rome experienced further turmoil until Augustus established the Roman Empire in 27 BCE, becoming its first emperor.
+
+The Roman Empire expanded vastly, encompassing much of Europe, North Africa, and parts of Asia. Rome became the empire's capital and a center of culture, politics, and architecture. The empire faced challenges such as economic troubles, invasions by barbarian tribes, and internal decay.
+
+In 476 CE, the Western Roman Empire fell, marking the end of ancient Rome's dominance. However, the Eastern Roman Empire, known as the Byzantine Empire, continued for nearly a thousand years. Rome itself remained an important religious center, especially as the seat of the Roman Catholic Church.
+
+Throughout the Middle Ages and into the Renaissance, Rome experienced periods of decline and revival. It became a hub of art,culture, and religion, attracting artists like Michelangelo and Raphael. Today, Rome is Italy's capital and a major tourist destination, renowned for its historical sites such as the Colosseum, Roman Forum, and Vatican City.
+0.05930644167162193
+0.08284649075788718
+0.13007251677099022
+[Router] Best agent: math agent (score=0.130)
+Total time = Number of stories × Time per story  
+Total time = 20 × 2 = 40 days
+achrafsoussi@Mac agentic-workflow-project % /Users/achrafsoussi/Downloads/agentic-workflow-project/.venv/bin/python /Users/ach
+rafsoussi/Downloads/agentic-workflow-project/starter/phase_1/action_planning_agent.py
+['1. Crack eggs into a bowl', '2. Beat eggs with a fork until mixed', '3. Heat pan with butter or oil over medium heat', '4. Pour egg mixture into pan', '5. Stir gently as eggs cook', '6. Remove from heat when eggs are just set but still moist', '7. Season with salt and pepper', '8. Serve immediately']
+achrafsoussi@Mac agentic-workflow-project % 

@@ -366,6 +366,8 @@ class RoutingAgent():
         self.openai_api_key = openai_api_key
         # TODO: 1 - Define an attribute to hold the agents, call it agents
         self.agents = agents
+        self.best_agent = None
+        self.best_score = -1
 
     def get_embedding(self, text):
         client = OpenAI(base_url="https://openai.vocareum.com/v1", api_key=self.openai_api_key)
@@ -377,13 +379,12 @@ class RoutingAgent():
         # Extract and return the embedding vector from the response
         embedding = response.data[0].embedding
         return embedding 
-    def route_prompt(self, user_input):
     # TODO: 3 - Define a method to route user prompts to the appropriate agent
+    def route_prompt(self, user_input):
+        self.best_agent = None
+        self.best_score = -1
         # TODO: 4 - Compute the embedding of the user input prompt
         input_emb = self.get_embedding(user_input)
-        best_agent = None
-        best_score = -1
-
         for agent in self.agents:
             # TODO: 5 - Compute the embedding of the agent description
             agent_emb = self.get_embedding(agent["description"])
@@ -391,17 +392,16 @@ class RoutingAgent():
                 continue
 
             similarity = np.dot(input_emb, agent_emb) / (np.linalg.norm(input_emb) * np.linalg.norm(agent_emb))
-            print(similarity)
-            if similarity > best_score:
-                best_score = similarity
-                best_agent = agent
+            if similarity > self.best_score:
+                self.best_score = similarity
+                self.best_agent = agent
             # TODO: 6 - Add logic to select the best agent based on the similarity score between the user prompt and the agent descriptions
 
-        if best_agent is None:
+        if self.best_agent is None:
             return "Sorry, no suitable agent could be selected."
 
-        print(f"[Router] Best agent: {best_agent['name']} (score={best_score:.3f})")
-        return best_agent["func"](user_input)
+        print(f"[Router] Best agent: {self.best_agent['name']} (score={self.best_score:.3f})")
+        return self.best_agent["func"](user_input)
 
 
 
