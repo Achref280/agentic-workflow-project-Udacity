@@ -95,4 +95,6 @@ Follow the `TODO` comments in the `agentic_workflow.py` starter code. Below are 
         * Print the result of the current step.
     * After processing all steps, assemble and print a single consolidated project plan with clearly labelled sections for user stories, product features, and engineering tasks. Do not print only the last completed step.
 
+For the Email Router project plan, keep the three stages explicitly ordered and label each planned step with its responsible role (`Product Manager`, `Program Manager`, or `Development Engineer`). Pass that role to `RoutingAgent.route_prompt()` to select the matching route exactly rather than relying on embedding similarity. Keep the short step separate from the worker input: include the product specification for every stage, then pass accepted user stories to the Program Manager and accepted stories plus features to the Development Engineer. Assemble the final plan in Python; do not send a compile step to a worker agent.
+
 This structured approach will guide you in building a functional agentic workflow. Good luck!

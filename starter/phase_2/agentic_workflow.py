@@ -8,6 +8,7 @@ from workflow_agents.base_agents import (
     RoutingAgent,
 )
 import os
+import re
 from dotenv import load_dotenv
 
 # TODO: 2 - Load the OpenAI key into a variable called openai_api_key
@@ -29,7 +30,15 @@ knowledge_action_planning = (
     "Features are defined by grouping related user stories. \n"
     "Tasks are defined for each story and represent the engineering "
     "work required to develop the product. \n"
-    "A development Plan for a product contains all these components"
+    "A development Plan for a product contains all these components. \n"
+    "Each step is assigned to one role, written as a label at the start of the line, "
+    "one step per line, without numbering or bullets: \n"
+    "Product Manager: defines user stories. \n"
+    "Program Manager: defines product features by grouping user stories. \n"
+    "Development Engineer: defines engineering tasks for the stories and features. \n"
+    "Only include the steps the request needs, ordered so that stories come before features "
+    "and features before tasks. Never include a step that compiles, consolidates or "
+    "summarizes the results; the workflow assembles the final plan itself."
 )
 # TODO: 4 - Instantiate an action_planning_agent using the 'knowledge_action_planning'
 action_planning_agent = ActionPlanningAgent(
@@ -68,7 +77,14 @@ product_manager_evaluation_agent = EvaluationAgent(
 )
 # Program Manager - Knowledge Augmented Prompt Agent
 persona_program_manager = "You are a Program Manager, you are responsible for defining the features for a product."
-knowledge_program_manager = "Features of a product are defined by organizing similar user stories into cohesive groups."
+knowledge_program_manager = (
+    "Features of a product are defined by organizing similar user stories into cohesive groups. "
+    "Write every feature with exactly these labelled fields:\n"
+    "Feature Name: A clear, concise title that identifies the capability\n"
+    "Description: A brief explanation of what the feature does and its purpose\n"
+    "Key Functionality: The specific capabilities or actions the feature provides\n"
+    "User Benefit: How this feature creates value for the user"
+)
 # Instantiate a program_manager_knowledge_agent using 'persona_program_manager' and 'knowledge_program_manager'
 # (This is a necessary step before TODO 8. Students should add the instantiation code here.)
 program_manager_knowledge_agent = KnowledgeAugmentedPromptAgent(
@@ -104,7 +120,17 @@ program_manager_evaluation_agent = EvaluationAgent(
 
 # Development Engineer - Knowledge Augmented Prompt Agent
 persona_dev_engineer = "You are a Development Engineer, you are responsible for defining the development tasks for a product."
-knowledge_dev_engineer = "Development tasks are defined by identifying what needs to be built to implement each user story."
+knowledge_dev_engineer = (
+    "Development tasks are defined by identifying what needs to be built to implement each user story. "
+    "Write every task with exactly these labelled fields, one task per user story or feature:\n"
+    "Task ID: A unique identifier for tracking purposes\n"
+    "Task Title: Brief description of the specific development work\n"
+    "Related User Story: Reference to the parent user story\n"
+    "Description: Detailed explanation of the technical work required\n"
+    "Acceptance Criteria: Specific requirements that must be met for completion\n"
+    "Estimated Effort: Time or complexity estimation\n"
+    "Dependencies: Any tasks that must be completed first"
+)
 # Instantiate a development_engineer_knowledge_agent using 'persona_dev_engineer' and 'knowledge_dev_engineer'
 # (This is a necessary step before TODO 9. Students should add the instantiation code here.)
 development_engineer_knowledge_agent = KnowledgeAugmentedPromptAgent(
@@ -207,39 +233,131 @@ print("\nDefining workflow steps from the workflow prompt")
 #   1. Use the 'action_planning_agent' to extract steps from the 'workflow_prompt'.
     #   2. Initialize an empty list to store 'completed_steps'.
 completed_steps = []
-workflow_steps = action_planning_agent.extract_steps_from_prompt(workflow_prompt)
 
-#   3. Loop through the extracted workflow steps:
-#      a. For each step, use the 'routing_agent' to route the step to the appropriate support function.
-#      b. Append the result to 'completed_steps'.
-#      c. Print information about the step being executed and its result.
-#   4. After the loop, assemble the completed steps into a single consolidated project plan with
-#      clearly labelled sections for user stories, product features, and engineering tasks, and
-#      print that plan. Do not print only the last completed step.
-project_plan = {
-    "User Stories": [],
-    "Product Features": [],
-    "Engineering Tasks": [],
+# Role metadata: output section, dependency order (a role needs the earlier ones),
+# and the request keywords that make the role mandatory in the plan.
+ROLES = {
+    "Product Manager": {
+        "section": "User Stories",
+        "rank": 0,
+        "keywords": ("user stor", "stories"),
+    },
+    "Program Manager": {
+        "section": "Product Features",
+        "rank": 1,
+        "keywords": ("feature",),
+    },
+    "Development Engineer": {
+        "section": "Engineering Tasks",
+        "rank": 2,
+        "keywords": ("engineering task", "development task", "tasks"),
+    },
 }
-section_by_agent = {
-    "Product Manager": "User Stories",
-    "Program Manager": "Product Features",
-    "Development Engineer": "Engineering Tasks",
+evaluation_agents = {
+    "Product Manager": product_manager_evaluation_agent,
+    "Program Manager": program_manager_evaluation_agent,
+    "Development Engineer": development_engineer_evaluation_agent,
 }
-for step in workflow_steps:
-    print(f"Executing step: {step}")
-    result = routing_agent.route_prompt(step)
-    if routing_agent.best_agent is None:
-        raise ValueError(f"No agent could be selected for step: {step}")
-    agent_name = routing_agent.best_agent["name"]
-    section = section_by_agent.get(agent_name)
-    if section is None:
-        raise ValueError("Step routed to an unknown agent")
+AGGREGATION_PATTERN = re.compile(r"\b(compile|consolidat\w*|assemble|combine|summari[sz]e)\b", re.I)
+
+
+def parse_plan_step(step):
+    """Split a planner line into (role, text); role is None if the label is unknown."""
+    cleaned = re.sub(r"^\s*(?:\d+[.)]\s*|[-*]\s*)", "", step).strip()
+    role, _, text = cleaned.partition(":")
+    role = role.strip().strip("*").strip()
+    if role in ROLES and text.strip():
+        return role, text.strip()
+    return None, cleaned
+
+
+def check_plan(steps, request):
+    """Planner checker: return a list of problems; an empty list means the plan is valid."""
+    problems = []
+    if not steps:
+        return ["The plan is empty."]
+
+    parsed = [parse_plan_step(step) for step in steps]
+    for step, (role, text) in zip(steps, parsed):
+        if role is None:
+            problems.append(
+                f"Step '{step}' must start with one of these role labels: {', '.join(ROLES)}."
+            )
+        elif AGGREGATION_PATTERN.search(text):
+            problems.append(
+                f"Step '{step}' compiles or summarizes results; remove it, the workflow assembles the plan."
+            )
+
+    roles = [role for role, _ in parsed if role]
+    ranks = [ROLES[role]["rank"] for role in roles]
+    if ranks != sorted(ranks):
+        problems.append("Steps are out of order: stories first, then features, then tasks.")
+
+    requested = request.lower()
+    for role, info in ROLES.items():
+        if any(keyword in requested for keyword in info["keywords"]) and role not in roles:
+            problems.append(f"The request needs {info['section']}, but no {role} step was planned.")
+    return problems
+
+
+def plan_workflow(request, max_attempts=3):
+    """Run the planner, check its plan, and send the problems back until the plan is valid."""
+    prompt = request
+    for attempt in range(1, max_attempts + 1):
+        steps = action_planning_agent.extract_steps_from_prompt(prompt)
+        problems = check_plan(steps, request)
+        print(f"Plan attempt {attempt}: {steps}")
+        if not problems:
+            return [parse_plan_step(step) for step in steps]
+        print(f"Plan checker found problems: {problems}")
+        prompt = (
+            f"{request}\n\nYour previous plan was rejected:\n"
+            + "\n".join(f"- {problem}" for problem in problems)
+            + "\nReturn a corrected plan."
+        )
+    raise RuntimeError(f"Planner could not produce a valid plan: {problems}")
+
+
+workflow_steps = plan_workflow(workflow_prompt)
+project_plan = {info["section"]: [] for info in ROLES.values()}
+
+for agent_name, step_text in workflow_steps:
+    section = ROLES[agent_name]["section"]
+    step = f"{agent_name}: {step_text}"
+
+    print(f"Executing step: {step_text}")
+    prior_context = "\n\n".join(
+        f"{completed['role']}:\n{completed['content']}"
+        for completed in completed_steps
+    )
+    agent_input = (
+        f"Step: {step_text}\n\n"
+        f"Product specification:\n{product_spec}"
+    )
+    if prior_context:
+        agent_input += f"\n\nCompleted project-plan sections:\n{prior_context}"
+
+    result = routing_agent.route_prompt(
+        step,
+        agent_name=agent_name,
+        agent_input=agent_input,
+    )
+    if not routing_agent.best_agent or routing_agent.best_agent["name"] != agent_name:
+        raise RuntimeError(f"Workflow step was not routed to {agent_name}")
+    evaluation_agent = evaluation_agents[agent_name]
+    if (
+        not evaluation_agent.last_evaluation
+        or not evaluation_agent.last_evaluation.lower().startswith("yes")
+    ):
+        raise RuntimeError(
+            f"{agent_name} did not produce an accepted result for step: {step_text}"
+        )
+
     print(f"Step routed to {agent_name}")
     completed_step = {"role": section, "content": result}
     completed_steps.append(completed_step)
     project_plan[section].append(result)
-    print(f"Completed step: {step}")
+    print(f"Completed step: {step_text}")
     print(f"Result: {result}")
 
 # TODO: 13 - Implement the assembly step used by TODO 12 step 4.
@@ -253,7 +371,9 @@ for step in workflow_steps:
 #   Keep the routing input separate from this assembly: route on the short step text only, and do
 #   not feed accumulated context back into 'routing_agent.route()'.
 print("\n*** Consolidated Project Plan ***\n")
-for section in ("User Stories", "Product Features", "Engineering Tasks"):
+for section, contents in project_plan.items():
     print(f"--- {section} ---")
-    for content in project_plan[section]:
+    if not contents:
+        print("(not requested)")
+    for content in contents:
         print(content)

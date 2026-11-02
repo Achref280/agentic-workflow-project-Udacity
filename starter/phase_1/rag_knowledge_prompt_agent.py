@@ -1,7 +1,13 @@
 from workflow_agents.base_agents import RAGKnowledgePromptAgent
 import os
 from dotenv import load_dotenv
+import warnings
 
+warnings.filterwarnings(
+    "ignore",
+    category=FutureWarning,
+    message=r"ChainedAssignmentError: behaviour will change in pandas 3\.0!.*",
+)
 # Load environment variables from .env file
 load_dotenv()
 

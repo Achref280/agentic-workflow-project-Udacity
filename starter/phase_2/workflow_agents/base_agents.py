@@ -6,6 +6,20 @@ import csv
 import uuid
 from openai import OpenAI
 from datetime import datetime
+import json
+import time
+
+
+def create_chat_completion_with_retry(client, attempts=3, **kwargs):
+    # The proxy occasionally returns a malformed body; retry instead of failing the workflow.
+    for attempt in range(1, attempts + 1):
+        try:
+            return client.chat.completions.create(**kwargs)
+        except json.JSONDecodeError:
+            if attempt == attempts:
+                raise
+            print(f"Malformed API response, retrying ({attempt}/{attempts - 1})...")
+            time.sleep(2 * attempt)
 
 # NOTE: each agent class below is wrapped in ''' ''' so this file imports cleanly
 # before you start. When you begin implementing a class, delete the ''' line above
@@ -81,7 +95,8 @@ class KnowledgeAugmentedPromptAgent:
     def respond(self, input_text):
         """Generate a response using the OpenAI API."""
         client = OpenAI(base_url="https://openai.vocareum.com/v1", api_key=self.openai_api_key)
-        response = client.chat.completions.create(
+        response = create_chat_completion_with_retry(
+            client,
             model="gpt-4.1-mini",
             messages=[
                 # TODO: 2 - Construct a system message including:
@@ -283,6 +298,7 @@ class EvaluationAgent:
         self.evaluation_criteria = evaluation_criteria
         self.agent_to_evaluate = agent_to_evaluate
         self.max_interactions = max_interactions
+        self.last_evaluation = None
 
     def evaluate(self, initial_prompt):
         # This method manages interactions between agents to achieve a solution.
@@ -290,6 +306,7 @@ class EvaluationAgent:
         prompt_to_evaluate = initial_prompt
 
         self.iteration_count = 0
+        self.last_evaluation = None
         response_from_worker = None
         evaluation = None
         for i in range(self.max_interactions):  # TODO: 2 - Set loop to iterate up to the maximum number of interactions:
@@ -309,7 +326,8 @@ class EvaluationAgent:
                 f"Meet this criteria: "  f"{self.evaluation_criteria}\n"  # TODO: 4 - Insert evaluation criteria here
                 f"Respond Yes or No, and the reason why it does or doesn't meet the criteria."
             )
-            response = client.chat.completions.create(
+            response = create_chat_completion_with_retry(
+                client,
                 model="gpt-4.1-mini",
                 messages=[
                     {"role": "system", "content": f"You are {self.persona}."},
@@ -320,6 +338,7 @@ class EvaluationAgent:
             )
             
             evaluation = response.choices[0].message.content.strip()
+            self.last_evaluation = evaluation
             print(f"Evaluator Agent Evaluation:\n{evaluation}")
 
             print(" Step 3: Check if evaluation is positive")
@@ -331,7 +350,8 @@ class EvaluationAgent:
                 instruction_prompt = (
                     f"Provide instructions to fix an answer based on these reasons why it is incorrect: {evaluation}"
                 )
-                response = client.chat.completions.create(
+                response = create_chat_completion_with_retry(
+                    client,
                     model="gpt-4.1-mini",
                     messages=[
                         {"role": "system", "content": f"You are {self.persona}."},
@@ -380,29 +400,40 @@ class RoutingAgent():
         embedding = response.data[0].embedding
         return embedding 
     # TODO: 3 - Define a method to route user prompts to the appropriate agent
-    def route_prompt(self, user_input):
+    def route_prompt(self, user_input, agent_name=None, agent_input=None):
         self.best_agent = None
         self.best_score = -1
-        # TODO: 4 - Compute the embedding of the user input prompt
-        input_emb = self.get_embedding(user_input)
 
-        for agent in self.agents:
-            # TODO: 5 - Compute the embedding of the agent description
-            agent_emb = self.get_embedding(agent["description"])
-            if agent_emb is None:
-                continue
+        if agent_name is not None:
+            matches = [agent for agent in self.agents if agent["name"] == agent_name]
+            if len(matches) != 1:
+                raise ValueError(f"Expected exactly one route for {agent_name}")
+            self.best_agent = matches[0]
+        else:
+            # TODO: 4 - Compute the embedding of the user input prompt
+            input_emb = self.get_embedding(user_input)
 
-            similarity = np.dot(input_emb, agent_emb) / (np.linalg.norm(input_emb) * np.linalg.norm(agent_emb))
-            if similarity > self.best_score:
-                self.best_score = similarity
-                self.best_agent = agent
-            # TODO: 6 - Add logic to select the best agent based on the similarity score between the user prompt and the agent descriptions
+            for agent in self.agents:
+                # TODO: 5 - Compute the embedding of the agent description
+                agent_emb = self.get_embedding(agent["description"])
+                if agent_emb is None:
+                    continue
+
+                similarity = np.dot(input_emb, agent_emb) / (np.linalg.norm(input_emb) * np.linalg.norm(agent_emb))
+                if similarity > self.best_score:
+                    self.best_score = similarity
+                    self.best_agent = agent
+                # TODO: 6 - Add logic to select the best agent based on the similarity score between the user prompt and the agent descriptions
 
         if self.best_agent is None:
             return "Sorry, no suitable agent could be selected."
 
-        print(f"[Router] Best agent: {self.best_agent['name']} (score={self.best_score:.3f})")
-        return self.best_agent["func"](user_input)
+        if agent_name is not None:
+            print(f"[Router] Explicit route: {self.best_agent['name']}")
+        else:
+            print(f"[Router] Best agent: {self.best_agent['name']} (score={self.best_score:.3f})")
+        routed_input = user_input if agent_input is None else agent_input
+        return self.best_agent["func"](routed_input)
 
 
 
