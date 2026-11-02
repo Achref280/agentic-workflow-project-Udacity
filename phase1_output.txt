@@ -94,4 +94,8 @@ Total time = 20 × 2 = 40 days
 achrafsoussi@Mac agentic-workflow-project % /Users/achrafsoussi/Downloads/agentic-workflow-project/.venv/bin/python /Users/ach
 rafsoussi/Downloads/agentic-workflow-project/starter/phase_1/action_planning_agent.py
 ['1. Crack eggs into a bowl', '2. Beat eggs with a fork until mixed', '3. Heat pan with butter or oil over medium heat', '4. Pour egg mixture into pan', '5. Stir gently as eggs cook', '6. Remove from heat when eggs are just set but still moist', '7. Season with salt and pepper', '8. Serve immediately']
-achrafsoussi@Mac agentic-workflow-project % 
+(agentic-workflow-project) achrafsoussi@Mac agentic-workflow-project % /Users/achrafsoussi/Downloads/agentic-workflow-pr
+oject/.venv/bin/python /Users/achrafsoussi/Downloads/agentic-workflow-project/starter/phase_1/rag_knowledge_prompt_agent
+.py
+What is the podcast that Clara hosts about?
+Dear students, based on the provided information, Clara's podcast called **"Crosscurrents"** explores the intersection of science, culture, and ethics. Each week, she interviews a diverse range of guests including researchers, engineers, artists, and activists, discussing topics that span from marine ecology to artificial intelligence.
